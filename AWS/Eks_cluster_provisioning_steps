@@ -1,0 +1,21 @@
+# what are steps we need to follow for installing any cluster
+
+First we installed on wsl(ubuntu) on windows mechine
+install ekctl on the local
+1.
+curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
+2. sudo mv /tmp/eksctl /usr/local/bin
+3. eksctl version
+
+along with we need awcli
+for this we need to run sudo apt update && sudo apt install awscli
+
+after that we need to run 
+eksctl install cluster \ -> this command is enough to eks on aws with default values 
+--name test-ekscluster \
+--version 1.17 \
+--region us-east-1 \
+--nodegroup-name linux-nodes \
+--node-type t2.micro \
+--node 2 
+ 
