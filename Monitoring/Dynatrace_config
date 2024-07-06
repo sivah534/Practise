@@ -1,0 +1,27 @@
+
+architecture of dyntrace
+--------------------------
+Dynatrace having two types, 
+Enterprise Hoated
+Cloud - SAAS - Trail
+# Dynatrace Installation steps On K8 cluster
+step1:
+use helm chart to deploy dyntrace operator, which manges the lifecycle of one agent and active gate.
+here active gate used facilate the communication between monitored environments and dyntrace clusteer,  it acts as rely and secure transfering of the data by handling network traffic and load balancing and data agrregation.
+
+command to download helm
+
+helm repo add dynatrace https://raw.githubusercontent.com/Dynatrace/helm-charts/main/repos/stable
+helm repo update
+
+kubectl create namespace dynatrace
+kubectl apply -f https://github.com/Dynatrace/dynatrace-oneagent-operator/releases/
+latest/download/kubernetes.yaml
+token name Operator_kubernetes_20240630_0524
+dt0c01.HMCOOKS4CX3R6XJGUCDE4DNB.4IZPHDFDI4ANC34FJTCZAAXSVP5EMULTKAO4BA7KIFKTLF2HOZMAXUZSF2DT5SRL    
+
+kubectl -n dynatrace create secrate generic oneagent --from -literal="apiToken=dt0c01.HMCOOKS4CX3R6XJGUCDE4DNB.4IZPHDFDI4ANC34FJTCZAAXSVP5EMULTKAO4BA7KIFKTLF2HOZMAXUZSF2DT5SRL" --from -literal="paasToken=default"
+
+Paas token
+
+dt0c01.ZDWB5ZUQDBRGU3TZFF3N35GL.EPLUGQWOXBX7WSUQJ3JIXVAEGHWCUYAJPCH2YQNKZ66YASY73EWUCTBNEBI6VEPR
