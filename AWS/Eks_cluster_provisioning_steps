@@ -11,7 +11,8 @@ along with we need awcli
 for this we need to run sudo apt update && sudo apt install awscli
 
 after that we need to run 
-eksctl install cluster \ -> this command is enough to eks on aws with default values 
+                        |-> this command is enough to eks on aws with default values
+eksctl create cluster \ 
 --name test-ekscluster \
 --version 1.17 \
 --region us-east-1 \
