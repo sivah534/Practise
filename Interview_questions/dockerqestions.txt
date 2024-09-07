@@ -1,0 +1,287 @@
+What is the copy and add coomands? what is the purpose?
+Here actually if you want copy any file form local to the host we can use copy
+Add command is more advanced to fetch somthing from the remote repo or url.
+
+what is entrypoint and cmd?
+Ans)If the entry point specified in dockerfile cmd will be the argument parameters for the entry point, if nothing specified in entry point cmd specified cmd will execute when container is running. we cant change the entry point command once the container is running but in cmd we can chage while container running
+example 
+entrypoint[ "ls"]
+cmd["la", "art", "lart"]
+How to reduce the size of the image?
+A) 
+we need to use the minimal base images like alphine, scracth and slimlight weigted images.
+And also need to use multi stage build to reduce the size of the image.
+And minmizing the layers by comibinding the commands
+example: RUN apt-get update && apt-get install -y \
+    package1 \
+    package2 \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+And also by using remove unnecesary files like tempfiles and package lists.
+And also use docker ignore to exculded which or not needed
+And also distroless images, its having only the application and runtime dependencys
+example: FROM gcr.io/distroless/java:11
+COPY myapp.jar /app/
+CMD ["java", "-jar", "/app/myapp.jar"]
+   
+what is multi stage build of image?
+its used to allow multiple from statements in your dockerfile, each creating seperate stage, this will help us to create more 
+efficent docker image, improved security and cleaner images
+
+example
+# Build Stage
+FROM maven:3.8.5-openjdk-11 as builder
+WORKDIR /app
+COPY . .
+RUN mvn clean package
+
+# Run Stage
+FROM tomcat:9.0-jre11-slim
+COPY --from=builder /app/target/app.war /usr/local/tomcat/webapps/
+EXPOSE 8080
+CMD ["catalina.sh", "run"]
+
+How to copy the war file into an docker image after checkout the code form the git repo?
+A) here is the posible way by using the docker commit, frist we need to copy the war file into the running container by using the
+ below command
+docker cp path/to/your/app.war temp-container:/usr/local/tomcat/webapps/
+and after that just need to run the below command
+docker commit temp-container my-tomcat-app
+after that just need to remonve the old container
+docker stop temp-container
+docker rm temp-container
+we can also do by Dockerfile add the extension to the existing image
+
+what is the command for build an image
+A)$docker build -f someDockerfile -tag demo1
+
+what is the command to run an image
+A)docker run -d --name ngix image-name:tag
+
+what is the overlay network where we can use that?
+A)alright, so overlay network is a one driver, right, that we use when we want our container to interact over different host. Right.
+ So let's say you. are using Kubernetes, the container orchestration tool, using a container runtime as Docker. So the network type 
+ will be the Overlay Network and the host network you set when you run a container on a specific Docker host, which purpose is to 
+ simply run it on that host. You do not have to define the port mapping here, like you do it in a bridge network. You can directly, 
+ simply provide the host network, and it will run on the port that you define. Let's say if you expose at Port 8080 the
+  container will run on the host port 8080 directly. So these are the network driver option that you get in Docker. 
+
+How to upgrade the jenkins?
+A) alright. So first thing is, we can upgrading the version. I'll take the backup of Jenkin home right? So entire backup of the 
+Jenkin home directory. This will help me to include all the job, configuration, plugins, user data, and then I'll back up the plugins 
+separately. List of all the plugins are installed, then the new version of the application right the WAR file or the package from the
+ Jenkins I'll simply test the new version based out on the staging environment that I'll try to mirror, not will directly do it with 
+ the production because there might be some compatibility issue with certain plugins, right, or the configurations that doesn't match, right? So in this basically what I'll do, I'll try to use the blue green deployment methodology for this, right, you know, where I'll first use the new Jenkin to be set up, and I'll synchronize the Jenkin home that I have to back up and upgrade the version and upgrade it, and then I try to switch the build job, Like using the load balancer like you know, simply to trigger it from here right or then I'll simply check if the jobs are running fine
+
+How to mask the credentilas in jenkins?
+if we are using any frestyle project then we can use mask plugin.
+if we are using declarative are scripted pipeline we need to use the "credentilas" directive to mask the secreates, here we need to 
+make sure the credntails added to the credential manager 
+example:
+pipeline {
+    agent any
+    environment {
+        SECRET = credentials('my-secret-id') // This will be masked
+    }
+    stages {
+        stage('Example') {
+            steps {
+                echo 'Using secret'
+                sh 'echo $SECRET' // The output will be masked
+            }
+        }
+    }
+}
+
+And if you want to mask specific values temporarley we can use the withCredentilas
+example:
+pipeline {
+    agent any
+    stages {
+        stage('Example') {
+            steps {
+                withCredentials([string(credentialsId: 'my-secret-id', variable: 'SECRET')]) {
+                    echo 'Using secret'
+                    sh 'echo $SECRET' // The output will be masked
+                }
+            }
+        }
+    }
+}
+
+
+how to display the build number and and timestamap on console what we need to add in declarative pipeline?
+A)
+
+we just need to add the env.BUILD_NUMBER for the build number and currentBuild.startTimeInMillis for the timestamp, 
+and optionally format it. for the scripted we caan simply add the new Date().format("yyyy-MM-dd HH:mm:ss")
+example:
+
+pipeline {
+    agent any
+    stages {
+        stage('Display Info') {
+            steps {
+                script {
+                    echo "Build Number: ${env.BUILD_NUMBER}"
+                    echo "Build Timestamp: ${currentBuild.startTimeInMillis}"
+                }
+            }
+        }
+    }
+}
+
+
+what is the basic structure of any jenkinsfile pipline?
+ A) here is the basic piplinestructure as below first wee need to specfiy the pipeline and after that which ageny you want run we choe any or else we can choose particular agent name after that we need to defin the stages, under the stages we have steps and scripts.
+
+
+pipeline {
+    agent any
+    stages {
+        stage('Build') {
+            steps {
+                echo 'Building...'
+            }
+        }
+        stage('Test') {
+            steps {
+                echo 'Testing...'
+            }
+        }
+        stage('Deploy') {
+            steps {
+                echo 'Deploying...'
+            }
+        }
+    }
+}
+
+what is sonarqube and how you could configure in jenkins?
+A) first we need to have running sonarqube on any server or instance and after we need to install sonarqubescaneer on jenkins fo this
+path Manage Jenkins > Global Tool Configuration > Scroll down to SonarQube Scanner and click Add SonarQube Scanner > Name it (e.g., Sonar
+QubeScanner) and configure the installation path or install automatically.
+To configure sonarqube server with jenkins go to sonarqubeserver in the project we need to generate token and add tht token in 
+jenkinsfile configuration.
+
+example of sonarqube stage in jenkinsfile
+
+stage("SonarQube analysis") {
+
+   node{
+
+	def scannerHome = tool 'SGISonarQubeScanner';
+
+	withSonarQubeEnv('PDPSonarQube') {
+
+		sh "${scannerHome}/bin/sonar-scanner"
+
+	}
+
+   }
+
+}
+
+How the versioning incremnt in jenkinsfile?
+A)
+                    stage("Versioning") {
+
+                        def mavenPom = readMavenPom file: 'pom.xml'
+
+                        echo "POM version is ${mavenPom.version}"
+
+                
+
+                        buildVersion = mavenPom.version.trim().replace('-SNAPSHOT', '')
+
+                
+
+                        if (env.BRANCH_NAME != 'master') {
+
+                            buildVersion += '-' + env.BRANCH_NAME
+
+                        }
+
+                
+
+                        if (buildType == 'snapshot') {
+
+                            buildVersion += '-SNAPSHOT'
+
+                        } else if (buildType == 'release') {
+
+                            echo "Determining existing tag versions of $buildVersion"
+
+                            def tags = sh script: "git tag --list $buildVersion*",
+
+                                    returnStdout: true
+
+                            echo tags
+
+                            existingTagVersions = [0]
+
+                            for (String tag in tags.split('\\s')) {
+
+                                tag = tag.trim()
+
+                                if (tag == '') continue
+
+                                existingTagVersions <<
+
+                                        (int) ((tag.tokenize('-')[-1]).toInteger())
+
+                            }
+
+                            existingVersionsCnt = existingTagVersions.size()
+
+                            maxExistingVersion = String.valueOf(existingTagVersions.max())
+
+                            thisVersion = String.valueOf(existingTagVersions.max() + 1)
+
+                            if (existingVersionsCnt > 1) {
+
+                                echo "Found ${existingVersionsCnt - 1} existing tag versions"
+
+                                echo "Highest tag version found is $maxExistingVersion"
+
+                            } else {
+
+                                echo "No existing tags versions found"
+
+                            }
+
+                            buildVersion += '-' + thisVersion
+
+                        }
+
+                        echo "buildNumber version $buildVersion"
+
+                    }
+what is the pom.xml file? what are core components of pom file?
+A)In pomxml we have this 
+Project Coordinates: Identify the project.
+Dependencies: Libraries required by the project.
+Build: Configuration related to the build process.
+Repositories: Sources to fetch dependencies.
+Profiles: Different configurations for various environments.
+Properties: Custom properties for use in the POM
+
+Project Coordinates:
+
+<groupId>: Identifies the group (organization) the project belongs to.
+<artifactId>: A unique identifier for the project.
+<version>: The version of the projec
+example:
+<groupId>com.example</groupId>
+<artifactId>my-app</artifactId>
+<version>1.0.0</version>
+specify the libraries and dependencies
+<dependencies>
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-web</artifactId>
+        <version>2.5.4</version>
+    </dependency>
+    <!-- Other dependencies -->
+</dependencies>
+the basic comand is to install a maven is?
+A) mvn clean install

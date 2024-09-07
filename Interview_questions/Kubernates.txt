@@ -1,0 +1,668 @@
+How we can deploy a pod on a specfic node in kubernates cluster?
+A) In kubernates we have a differnet ways to deploy on specific node
+ 1.node selector
+ 2.node affinity
+ 3.Taints and toleration
+ 4.Pod affinity and anti affinity
+ 5.Deamonsets
+ 6.nodename
+
+What is taint and tolerance?
+A)In kubernates taint tolerante working together, which pods should be scheduled on which node. Taint consists of three components which
+are key , value and efect
+example cmand to add a taint to the node
+$kubectl taint nodes node1 key=value: NoShedule
+adding toleration to pod, so here it can be sheduled on the node with the bove taint
+apiversion: v1
+kind: pod
+metadata:
+    name: special-pod
+spec:
+    toleration: 
+    - key: "key"    
+     operator: "Equal"
+     value: "value"
+     effect: "NoShedule"
+    Containers:
+   - name: special-container 
+     image: my-apecial-image
+replacing the values on the above example with below values
+$kubectl taint node1 dedicated=special:NoShedule
+apiversion: v1
+kind: pod
+metadata:
+    name: special-pod
+spec:
+    toleration: 
+    - key: "dedicated"    
+     operator: "Equal"
+     value: "special"
+     effect: "NoShedule"
+    Containers:
+   - name: special-container 
+     image: my-apecial-image
+
+How the node selector works what is the use of node selector?
+A)it is simple effective method to shedule a pod on a specifc node by using lables.
+first by using the below command we can label the node
+kubectl label nodes node1 disktype=ssd
+kubectl label nodes node2 disktype=hdd
+
+and define the pod specifcation as below
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ssd-specific-pod
+spec:
+  nodeSelector:
+    disktype: ssd
+  containers:
+  - name: mycontainer
+    image: myimage
+
+
+
+
+what is node affinity, pod affinity/anti pod effinity? how we can use what is the usecase?
+A) node affinty allows you to constrin which nodes you pod can be sheduled based on node labels. it is more expressive and flexible option as compared to basic node selector.
+here two typeys of node affinity mentioned
+1.requiredDuringShedulingIgoneredDuringExecution
+it specifed rules must met to shedule pod on node. this rules are called hard constraints. its only shedule a pod on node if they match with constraints otherwisw no.
+2.prefferedDuringShedulingIgoneredDuringExicution
+it specfiyed rules to be preffered but not compulsary. here its trying to met the rules but it will placepod on other nodes if it is neccesary
+example:
+apiVersion: v1
+kind:
+metadata: 
+    name: example-pod
+spec:
+    affinity:
+     nodeaffinity:
+     requiredDuringShedulegIgonerdDuringExicution:
+     nodeSelectorterms:
+     - matchExpression:
+      - key: Disktype  
+        operator: In
+        values: 
+        - ssd
+     preferredDuringSchedulingIgnoredDuringExecution:
+       - weight: 1
+        preference:
+          matchExpressions:
+          - key: another-node-label-key
+            operator: In
+            values:
+            - another-node-label-value
+    containers:
+    - name: mycontainer
+      image: myimage        
+
+    node affinity will ensure that pod can running on specifice hardware like ssd or Gpu. it restric workload for a specifc zones to overcome the performance or complaince issues.
+    
+    Pod affinity/ anti aaffinity
+    ----------------------------
+    Pod affinity: it ensures that pods are running on the same node or close to other specify node to improve performance by co-locating microservies and reduce the latency.
+    Pod anti affinity: ensures that pods are sheduled on specified nods to ensure that certain workloads do not run on same node to aviod resource contention.
+    these are the below examples:
+
+Pod affinity exapmle
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-with-affinity
+spec:
+  affinity:
+    podAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchExpressions:
+          - key: app
+            operator: In
+            values:
+            - frontend
+        topologyKey: "kubernetes.io/hostname"
+  containers:
+  - name: mycontainer
+    image: myimage
+
+Example of anti affinity
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-with-anti-affinity
+spec:
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchExpressions:
+          - key: app
+            operator: In
+            values:
+            - frontend
+        topologyKey: "kubernetes.io/hostname"
+  containers:
+  - name: mycontainer
+    image: myimage
+
+What is deamonset? and how it is work in kubernates?
+A deamonset is kubernates workload resource that ensures a copy of pod is running on all nodes or some nodes. the main pupose is to run some background process such as like logs collector, monitring aents and network components.
+like for example to collect the logs by using fluntd or filebeat on all nodes to collect and ship logs to cetralized spluk location.
+and also to run monitring agents of promethes node exporter nad data dog. Ad network proxis that needs to be run on each node.
+below comman commnds use on demaonsets:
+
+kubectl get daemonsets
+kubectl apply -f daemonset.yaml
+kubectl describe daemonset <daemonset-name>
+kubectl delete daemonset <daemonset-name>
+
+example of deamonset
+
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: fluentd
+  labels:
+    app: fluentd
+spec:
+  selector:
+    matchLabels:
+      name: fluentd
+  template:
+    metadata:
+      labels:
+        name: fluentd
+    spec:
+      containers:
+      - name: fluentd
+        image: fluent/fluentd:latest
+        resources:
+          limits:
+            memory: "200Mi"
+            cpu: "100m"
+        volumeMounts:
+        - name: varlog
+          mountPath: /var/log
+        - name: varlibdockercontainers
+          mountPath: /var/lib/docker/containers
+          readOnly: true
+      volumes:
+      - name: varlog
+        hostPath:
+          path: /var/log
+      - name: varlibdockercontainers
+        hostPath:
+          path: /var/lib/docker/containers
+what is headless service? where we can use the headless service?
+A) headless service is a service without clusterIP and not loadbalcing unlike the regular service. allowing direct access to pods part 
+of service. comonley we used for statfulset applications such as database here each pods needs to be individually addressable, it is 
+used for stable network in stafulset appcations
+example of headless service
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: myapp
+spec:
+  clusterIP: None
+  selector:
+    app: myapp
+  ports:
+  - port: 80
+    name: web
+
+example of ststefullset
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: myapp
+spec:
+  serviceName: "myapp"
+  replicas: 3
+  selector:
+    matchLabels:
+      app: myapp
+  template:
+    metadata:
+      labels:
+        app: myapp
+    spec:
+      containers:
+      - name: myapp
+        image: myapp-image
+        ports:
+        - containerPort: 80
+  volumeClaimTemplates:
+  - metadata:
+      name: myapp-storage
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 1Gi
+
+ In the above example:
+
+The headless service myapp enables direct access to the pods.
+The StatefulSet myapp ensures that each pod gets a unique identity (e.g., myapp-0, myapp-1, myapp-2) and is assigned a stable network identity that can be discovered using the headless service. 
+
+what is service account in kubernates? on which use case we can use service account?
+A)a service account in kubernates is an identity, the main purpose of service for authentication of pod with kubernates api, And 
+autherzation, they are tied to specific roles and permisions so that we can controling what acctions can perform pods. And secrate 
+mangemnt kubernates automatically create and mount secrates to service account token which pod can intract with api.
+
+service accounts can be used in jenkins ci/cd pipelines to deploy applications and mange cluster resources, with a speccific service 
+account.
+service account can also used in multi tenant environmnets, to enforce isolation and restrict access between tenants.
+And also for auto acaling, custom controlers or operatotors without human interaction.
+
+Example scnario usage of service account for prometheus monitring
+
+ -creating servic e account for promtheus
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prometheus
+  namespace: monitoring
+
+-defing role with read only access
+
+  apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: monitoring
+  name: prometheus-read
+rules:
+- apiGroups: [""]
+  resources: ["pods", "services", "endpoints"]
+  verbs: ["get", "list", "watch"]
+
+- Bind the role with service account
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: prometheus-read-binding
+  namespace: monitoring
+subjects:
+- kind: ServiceAccount
+  name: prometheus
+  namespace: monitoring
+roleRef:
+  kind: Role
+  name: prometheus-read
+  apiGroup: rbac.authorization.k8s.io
+
+ and finally deploy prometheus with service account
+
+ apiVersion: v1
+kind: Pod
+metadata:
+  name: prometheus
+  namespace: monitoring
+spec:
+  serviceAccountName: prometheus
+  containers:
+  - name: prometheus
+    image: prom/prometheus
+to make sure that prometheus can only read neccesary resources to scrape metrics
+
+what are the default name spaces in kubernates?
+A)the defaulut is the one of the default name space and anothor is kubesystem and another is kube public.
+here the default is for the object which is not specify namespaces.
+kube system is for system components and resources such as kubedns and kube proxy a nd other infra components.
+kube-public is for cluster wide resources that needs to visible all users
+
+what is secreates? in kubernates.
+A)secrates is used to store sensitive information such as password, oauth tokens and ssh keys and certificates. 
+types of secrates:
+opaque: default type of storing arbitray data
+docker registray for storing  docker registery credentails
+basic-auth for basic authentication
+ssh-auth foor ssh authentication
+it encode the data in base64 and decoded when it uses in pod application.
+
+what is secrate volumes? and the usecase?
+A) secrate volumes allow pods to consume secrets as a file. secrates can be mounted into pods as a file. and makes accessable
+ credentials or api keys an also provide configuration data to applocations inside the pod.
+
+examplae creating secrate volume
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: my-secret
+type: Opaque
+data:
+  my-key: c2VjcmV0dmFsdWU=  # Base64 encoded value
+
+Pod yaml with secrate volume
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: my-pod
+spec:
+  containers:
+  - name: my-container
+    image: nginx
+    volumeMounts:
+    - name: secret-volume
+      mountPath: /etc/secret
+  volumes:
+  - name: secret-volume
+    secret:
+      secretName: my-secret
+
+what is the command to get secrates and decode?
+ to get secrates
+ $ kubectl get secrets
+
+for decoding
+kubectl get secret <secret-name> -o jsonpath='{.data.<key>}' | base64 --decode
+
+How to use the service is avilable in one name space into anothor name space?
+
+ A)we can use FQDN(fully qualified domain name) formate <service-name>.<namespace>.svc.cluster.local
+
+and need to ensure network polices or acess controls allow communication between the ame spaces.
+if we need advaced service discovery we can use advanced options by using ingress controler and service mesh
+ like istio.
+
+ here is the example of service using from one namespace to anothor namespace
+
+ apiVersion: v1
+kind: Pod
+metadata:
+  name: my-pod
+  namespace: namespace-b
+spec:
+  containers:
+  - name: my-container
+    image: nginx
+    env:
+    - name: SERVICE_URL
+      value: "http://my-service.namespace-a.svc.cluster.local"
+
+And also we need to ensure network polices to allow communication betwen namespaces
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-namespace-b
+  namespace: namespace-a
+spec:
+  podSelector:
+    matchLabels:
+      app: my-app
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: namespace-b
+
+what is the difference between pv and and PVC? when we use that?
+A) a presistnat volume is a piece of storgaed provided to the invidual pod, it provide stroge resources for workloads. the lifcyle of
+ pvs independent not depend on the pod lifecycle. this are the various types of Pvs like NFS. iscsi, aws ebs, gce pd, azure disk.
+
+example of pv:
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: my-pv
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /mnt/data
+
+PVC
+---
+
+pvcs(persistant volume claims) which are used to claim the specific storage and acess modes form pvs by the user to allocating to the 
+pods. here pvcs are bind to matching pvs and the storage is allocated based on the cliam specifications.
+
+ here is the example configuration 
+
+ apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: my-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+
+what is the cause of pod pending state in kubernates?
+A) there might be the multipule factors pod going to pending state like mentioned below:
+
+resource constrints: the cluster might not having the sufficent resuources like cpu, memory and storage.
+anothor reason might be the resource requests and resource limits, here the pod might specfied more than the avilable resources.
+
+scheduling constarints: it might be the node selector or node effinity rules, here the rules may not macth with avilable nodes or taints and toleration, the pod have tolration does not match with taint nodes in avilable nodes.
+
+PVc binding issues: if incase the the pvc not binding with the pv due to that pod in pending state
+
+image pull error: it might be the cause of image name does not exists or canot be access or image pull secrate not configured correctley.
+
+network or dns issue: it might be the problem with network plugin  being prevented the pod shedule or elae dns resolution issue for intialization or communication.
+
+node condition: like nodes are unavilable or not ready under maintainence.
+
+resource quota and limits: perticular name space resource quota may be exceded and also the cause limtaion of resources for particalr nname space.
+
+trouble shooting commands
+kubectl logs <pod-name> --previous
+kubctl  describe pod
+
+how to rollback the specific pods from the cluster like 2 pods only out of 5 pods?
+A) we can do it by using manual deletion of the pods and recreate it. or with deployment if we use deploymnt it will create entire 
+relicas or we can use mmutiple replicasets for version amnagemnt. or elase we can use custom scripts for auto delection recreation of the pod. 
+what are the different deployment staratagies:
+
+rolling update and canary deployment, here the canary deployment slowly upgrasde to new version not entrire cluster single time for this
+ we need to use the service mesh or manually isolate some the nodes.
+
+what is the command to scale up in k8s?
+A)
+kubectl scale deployment my-app --replicas=4
+
+
+
+what is readyness and liveness probe?
+A)these are the health cheacks rediness probs are defined wether  the application inside the container or pod ready accept and serve the 
+request traffic or not. if it fails on this helath check route the trafiic to anothor pod until the application resume back to serve the
+ requests.
+Liveness probe: it checks wether the container is up and running or not, it it is failed the health check test it will kill that pod and
+ restart the pod based on the restart policy.
+
+example
+
+ spec:
+      containers:
+      - name: user-management-backend
+        image: proj_csdp/user-management_backend:3.1.8
+        imagePullPolicy: IfNotPresent
+        ports:
+          - containerPort: 8080
+        livenessProbe:
+          httpGet:
+            port: 8080
+            path: /user_management/health
+          initialDelaySeconds: 300
+          timeoutSeconds: 30
+        readinessProbe:
+          httpGet:
+            port: 8080
+            path: /user_management/health
+          initialDelaySeconds: 10
+          timeoutSeconds: 5
+What is the default path of the kubeconfig file in kubernaates?
+A) .kube/config
+
+What do you do when k8s node fails? How do fix this issue?
+A) Frist check the nodes by using kubectl get nodes and drain the node by using the below command
+   kubectl drain <node-name> --ignore-daemonsets --delete-local-data
+   verify the node configuration /etc/kubernetes/. after fixing the issue try to rjoin the node to the cluster
+    to prevent this we can use the monitoring tools and auto scaling mechnisam .
+
+how to add autoscaling for eks cluster?
+A) first we need to create a IAM role and attach the autoscaling policy to that role 
+aws iam create-policy --policy-name AmazonEKSClusterAutoscalerPolicy --policy-document file://cluster-autoscaler-policy.json
+and edit the deployment manifest file
+kubectl -n kube-system edit deployment.apps/cluster-autoscaler
+and add the required permissions to service account 
+kubectl annotate serviceaccount cluster-autoscaler \
+  -n kube-system eks.amazonaws.com/role-arn=arn:aws:iam::<AWS_ACCOUNT_ID>:role/<IAM_ROLE_NAME>
+and then deploy the autoscaler
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/autoscaler/master/cluster-autoscaler/cloudprovider/aws/examples/cluster-autoscaler-autodiscover.yaml
+
+conulsion: In Kubernetes, the ASG configuration and autoscaling are managed through the Cluster Autoscaler, which interacts with cloud provider 
+ASGs to adjust node count based on demand. Pod scaling is handled by the Horizontal Pod Autoscaler. These components work together to 
+ensure that your Kubernetes cluster scales efficiently to meet application demands.
+
+How to use the HPA?
+A) we have to setup the condition or thrshold on the resource utilization if it is exeds the specifed resource it automatically scaleup 
+and scale down the replicas besed on the max and min values
+
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: my-app-hpa
+  namespace: default
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: my-app
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 50
+
+What are the auto scaling types in kubernates?
+A)basically we have a three types of autoscaling mechanisams in kubernates
+Cluster auto scaler and HPA and VPA.
+Here in the cluster auto scalar adding the node based on the threshold condition. in HPA add the number of pods based resource 
+utilaztion.
+
+what is CRD in   
+A) It is a custome resource defination we can use it fro thitd aprty application, here we can create our own custom resource
+
+
+What are the services in kubernetes?
+A)In kubernates we have different services clusterIP knowan as service IP which is assigned to the pod, even if pod dies the cluster ip
+ remins and it serves the requests with new pod. And also we have container port and target port, here container port is listening and 
+ accessible througthe that port number and forward the request to target port whic we have assigned 
+Example:
+service:
+  ports:
+    protocol: TCP
+    containerPort: 9090
+    targetPort: 9090
+
+
+Nodeport: exposing service on specific node ports
+Loadbalancer: exposing services externeally with load balancer
+externalname/DNS: integrating external service with 
+5) what is layer4?
+The layer 4 is trsportaiion layer in k8 it come under lodbalancer layer.
+Here ingress will take of service exposing for external communication and nginx acts as reverse proxy. In the context of ingress the 
+public ip assigned as external IP. This ip address is used to route the traffic from internet to appropriate service in internal cluster.
+Here we can defined the rules to access for accessing to backend service from from domain name service this all configuration we can 
+setup in ingress.
+Example:
+  apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-ingress
+spec:
+  rules:
+  - host: example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: my-service
+            port:
+              number: 80
+  ingressClassName: nginx
+  # External IP provided by the Ingress controller
+  status:
+    loadBalancer:
+      ingress:
+      - ip: 203.0.113.10
+
+what is PDB?
+A)Pdb Is a pod distribution budget it is a policy that specify nuber of pods should be avilable during voluntry disruption. it helps the
+ application highly avilable during maintainence.
+PDb are defined to stafull applications like databses to prvent simultaneos pod deletes
+in voluntry pdb will work becasue if it is the maintaince activity or upgradr
+non-voluntry case pdb does not work like node craash or pod crash errors
+
+here is the example of pdb
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: my-pdb
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: my-app
+
+
+Kubernetes storage? Storgae classes
+A) storage callsse
+Storage Classes define the provisioner (e.g., AWS EBS, GCE PD) and parameters for the storage (e.g., replication, performance).
+How can a pod in one node communicate with a pod in a different node?
+ A)
+pods in kubernates cluster can comunicate with each other across cluster with networking capabilitys.
+Kubernetes uses Container Network Interface (CNI) plugins to manage network resources. Popular CNI plugins include Calico, Flannel, Weave, and Cilium.
+and also we conect by using the podip and overlay network
+When a pod is created, it gets an IP address from the cluster’s IP address range.
+The CNI plugin ensures that the network is configured so that pods can reach each other using their IP addresses, regardless of the node they are on
+
+How you can specify the particular resources assigned to the pod in manifest files?
+A)
+by using the resource requests and and limits we can define the how much cpu is required for this pod and how much the limit it could be used.
+
+what are the backup solutions for the kubernates?
+A) ETCD backups are essential for preserving the cluster state.
+Velero is a comprehensive solution for Kubernetes cluster and volume backups.
+we need to configure the backuuppolicy.yml for the daily backup
+for the persistnat volumes we use the volumesnapshots backup
+
+example
+apiVersion: stash.appscode.com/v1alpha1
+kind: BackupConfiguration
+metadata:
+  name: deployment-backup
+  namespace: demo
+spec:
+  schedule: "@every 5m"
+  task:
+    name: psp-volume-snapshot
+  target:
+    ref:
+      apiVersion: apps/v1
+      kind: Deployment
+      name: my-deployment
+    volumeMounts:
+      - name: data
+        mountPath: /source/data
+  repository:
+    name: gcs-repo
+  retentionPolicy:
+    name: "keep-last-5"
+    keepLast: 5
+    prune: true

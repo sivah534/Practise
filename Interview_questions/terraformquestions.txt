@@ -1,0 +1,378 @@
+What is terraform provider? What it does?
+Ans) provider is a plugin layer in terraform, provider is responsible for the integration with the external API and provides a layer of
+abstraction. Initialization of external api communication.
+what are the different modules in erraform?
+Ans) basically we ave 3 types of modules one is root module, child module and publish module.
+in root module we can defined the main resources and in child modules we can defined som common modules wich would be calling root 
+module, the publish module we can defined as public or private who ever can reuse the module in different environments.
+
+How to pass public key in terraform?
+Ans) you can pass the public key through terrform script with the resource aws_key_pair and make it into file function as below
+resource "aws_key_pair" "my_key_pair" {
+  key_name   = "my-key-pair"
+  public_key = file("~/.ssh/id_rsa.pub")
+}
+How to install any packages on terrform provisoned vm with terrform script?
+Ans) to install any packages on the terraform provisioned or other vm with the terraform script, here we can use the provisioners 
+blcok within the resource definationfile, it includes the remote_exec and file for exicuting command on vm and to upload the scripts.
+example:
+resource "aws_instance" "example" {
+  ami           = "ami-0c55b159cbfafe1f0"
+  instance_type = "t2.micro"
+  key_name      = aws_key_pair.my_key_pair.key_name
+
+  provisioner "remote-exec" {
+    inline = [
+      "sudo apt-get update -y",
+      "sudo apt-get install -y nginx"
+    ]
+  }
+
+  connection {
+    type        = "ssh"
+    user        = "ubuntu"
+    private_key = file("~/.ssh/id_rsa")
+    host        = self.public_ip
+  }
+}
+
+what is the lifecycle block in terraform how we can use?
+A)The lifecycle block in Terraform is used to customize the behavior of resource management, including how Terraform handles the creation,
+updating, and deletion of resources. It provides settings that can help control and manage resources more effectively, particularly in
+complex environments.
+
+prevet destroy
+
+ we can use to control the resource with destroing 
+ lifecycle {
+    prevent_destroy = true
+  }
+
+  createbefore destroy example:
+
+  resource "aws_instance" "example" {
+  # Configuration...
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+ignore changes for the particula resorce attributes
+
+resource "openstack_images_image_v2" "CentOS_VM_Encryption_7" {
+  name             = "CentOS-VM-Encryption-7"
+  local_file_path = "${var.images_repo_url}/${var.centos_auto_decrypt_image_7}"
+  container_format = "bare"
+  disk_format      = "qcow2"
+  visibility       = "private"
+
+  properties = {
+    description = "${var.centos_auto_decrypt_image_7}"
+    username = "centos"
+  }
+  lifecycle {
+    ignore_changes = ["image_cache_path", "local_file_path"]
+  }
+}
+
+2)I want to restrict other person action like delete ec2 instance how can do it in terraform?
+Ans) by using lifcycle block we can restrict the acctions of thers for specfice aws resources
+Example:
+resource "aws_instance" "example" {
+  ami           = "ami-0c55b159cbfafe1f0"
+  instance_type = "t2.micro"
+
+
+  # Other configuration options...
+
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+
+
+Where do you use list and maps in terraform?
+
+Ans) when we are creating multiple similar resources like ece2 instance, subnets we use the lists
+
+Example:
+resource "aws_instance" "example" {
+  count = length(var.instance_types)
+  instance_type = var.instance_types[count.index]
+  ami           = "ami-0c55b159cbfafe1f0"
+}
+
+variable "instance_types" {
+  type    = list(string)
+  default = ["t2.micro", "t2.small", "t2.medium"]
+}
+
+
+Map: maps are used to define the key value pairs
+
+variable "flavors" {
+  type = map(object({
+    vcpus      = number
+    ram        = number
+    disk       = number
+    root_disk  = number
+  }))
+}
+What is for each in terraform?
+Ans) in terraform "for_each" meta argument is used for ittirate over a collection(like list, map, set). and its used to create multiple
+ same resources like ec2 instances, modules form the collection of items.
+ for_each block contains the eac.key and each.value, here eac.key is the key of the current item useful in maps, and each.value is the 
+ value of current item
+
+ note: in maps we need to use each.key because the key is unique here, when we comapred with the list, list not having the keys so there 
+ we dont define any key  
+
+the below example for map with for_each:
+
+resource "openstack_compute_instance_v2" "instance" {
+  for_each = var.instances
+
+
+  name  = each.key
+
+  image_name        = each.value.image
+  flavor_name       = each.value.flavor
+  availability_zone = each.value.availability_zone
+
+}
+
+variable "flavors" {
+  type = map(object({
+    vcpus      = number
+    ram        = number
+    disk       = number
+    root_disk  = number
+  }))
+}
+
+for_each anothor example:
+
+
+variable "instances" {
+  type = map(string)
+  default = {
+    prod = "t2.large"
+    dev  = "t2.micro"
+  }
+}
+
+resource "aws_instance" "example" {
+  for_each = var.instances
+  instance_type = each.value
+  ami           = "ami-0c55b159cbfafe1f0"
+}
+
+the below example with lists with for each:
+
+variable "security_groups" {
+  type = list(string)
+  default = ["sg-0123456789abcdef0", "sg-0fedcba9876543210"]
+}
+
+resource "aws_instance" "example" {
+  for_each = toset(var.security_groups)
+
+  ami           = "ami-0c55b159cbfafe1f0"
+  instance_type = "t2.micro"
+
+  vpc_security_group_ids = [each.value]
+}
+
+
+for_each anothor example:
+
+
+variable "instances" {
+  type = map(string)
+  default = {
+    prod = "t2.large"
+    dev  = "t2.micro"
+  }
+}
+
+resource "aws_instance" "example" {
+  for_each = var.instances
+  instance_type = each.value
+  ami           = "ami-0c55b159cbfafe1f0"
+}
+when we use for_each and count? what is the difference?
+Ans)
+Use "for_each" when iterating over a map, set, or list with unique keys/values and when you need to access both the key and value.
+Use "count" when iterating over a simple list or when you only care about the index (e.g., count.index)
+
+what are the condition statements in terraform? what is the use of count where and when we use the count?
+Ans) The count meta-argument in Terraform is an essential tool for creating resources conditionally or in multiples. 
+the count is used for conditional creation like the resurce needs to be created or not based on the condition
+exaple to create bucket:
+
+variable "create_bucket" {
+  type    = bool
+  default = true
+}
+
+resource "aws_s3_bucket" "example" {
+  count = var.create_bucket ? 1 : 0  # Create the bucket only if create_bucket is true
+
+  bucket = "my-conditional-bucket"
+  acl    = "private"
+}
+
+count to create multiple resources based on list:
+
+variable "subnet_cidrs" {
+  type = list(string)
+  default = ["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]
+}
+
+resource "aws_subnet" "example" {
+  count = length(var.subnet_cidrs)  # Create one subnet per CIDR block in the list
+
+  vpc_id     = "vpc-12345678"
+  cidr_block = var.subnet_cidrs[count.index]
+  availability_zone = "us-west-2a"
+
+  tags = {
+    Name = "subnet-${count.index + 1}"
+  }
+}
+
+here count = length is ensures that subnet create for each and evry cidr in th list
+and the count.index is used to access each cidr block in the list
+
+and also we can make complex condition based resource craetaion by using count as below:
+
+variable "environment" {
+  type    = string
+  default = "dev"
+}
+
+resource "aws_instance" "example" {
+  count = var.environment == "prod" ? 1 : 0  # Only create the instance in the prod environment
+
+  ami           = "ami-0c55b159cbfafe1f0"
+  instance_type = "t2.micro"
+
+  tags = {
+    Name = "production-instance"
+  }
+}
+
+here the var.environment is equla to prod then only it will creates the resource other witse not, it gives flexible condition to create any 
+resource.
+
+anothor ec2 creation xampe with count:
+ resource "aws_instance" "example" {
+  count         = var.create_instance ? 1 : 0
+  instance_type = "t2.micro"
+  ami           = "ami-0c55b159cbfafe1f0"
+}
+
+the complex variable declartaion explanation?
+Ans)variable "servergroups" {
+  type = map(list(string))
+   here what it does like 
+map: This indicates that the variable will be a collection of key-value pairs. Each key is a unique string, and each value is associated with that key.
+list(string): The value associated with each key in the map is a list of strings. This means that for every key in the map, the value will
+be a list containing multiple string elements.
+
+example:
+variable "servergroups" {
+  type = map(list(string))
+  default = {
+    "web"    = ["web1", "web2", "web3"]
+    "db"     = ["db1", "db2"]
+    "cache"  = ["cache1", "cache2", "cache3"]
+  }
+}
+
+
+where we can use the null resource?
+Ans)
+he null_resource in Terraform provides a flexible way to run local or remote commands, manage dependencies, and handle cases where a 
+specific resource type isn't available. While powerful, it's best used judiciously to avoid complicating your Terraform configurations.
+commonly we used with local_exec and remote_exec provisioners to run scripts or commands in local or remote.
+
+Provisions: Use null_resource's provisioner block to run commands or scripts on local 
+
+resource "null_resource" "example" {
+  provisioner "local-exec" {
+    command = "echo 'Running a local script or command'"
+  }
+}
+
+example of remote_exec:
+-----------------------
+
+resource "null_resource" "example" {
+  connection {
+    type        = "ssh"
+    user        = "ubuntu"
+    private_key = file("~/.ssh/id_rsa")
+    host        = "example.com"
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "echo 'Running remote command on the instance'",
+      "sudo apt-get update"
+    ]
+  }
+}
+
+What if the state file corrupted? How can you recover?
+Ans) we can recover the state file from the backup or else we can use remote state backup in s3 bucket, here we enable version of 
+backup snapshots we just need to restore the previous version.
+Another way is to manually edit the state file carefully and validate with json but its not recommended strictly. Or else we just 
+remove the corrupted file and we can recreate the state file with “terraform import”
+Conclusion: A corrupted Terraform state file can be recovered by restoring from backups, manually repairing the file, using terraform 
+state commands, or in the worst-case scenario, rebuilding the state file. To avoid future issues, use remote state backends with 
+versioning and locking, and avoid manual state file modifications.
+
+if i want terraform to automatically pick up variable files how to do?
+Ans) Yes we can do automatically pickup the the variables in terraform, not only do it manually. We could specify auto.tfvars based on
+the environments like dev.auto.tfvars and prod.auto.tfvars
+
+How to validate the terraform scripts?
+Ans) by using the terraform validate command
+
+how to auto approve in terraform?
+Ans) terraform apply --auto-approve thiis command will auto approve with out confiramtion dilogue.
+
+how to apply the change to the particular resource?
+
+Ans)we can do by the following command terraform apply - target = resource-name resuorce type
+how to see the logs output?
+ans) need to run this export TF_LOG_TRACE
+if you want off the logs TF_Log_
+How to pass the sensitive information in terraform?
+Ans) we can add the sensitive argument in variables it will mask the passwords etc..
+
+how to confgure vault
+vault_role_id
+
+How too configure vault? with the trraform authentication?
+provider "vault" {
+  address = "https://vault:8200"
+  skip_tls_verify = true
+  auth_login {
+    path = "auth/approle/login"
+    parameters = {
+      role_id = "${var.vault_role_id}"
+      secret_id = "${var.vault_secret_id}"
+    }
+  }
+}
+
+what is terraform drift?
+terrafrom drift happend when the situation when the acutal state of infrastructure is differ from the actual state, this can 
+happend because of the some on one did manula changes directly from console or cli. drift can lead in consistency and unexpected
+behaviour. to detect and address drift we can use  terraform plan.
+
