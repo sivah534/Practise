@@ -1,0 +1,3 @@
+How to do the migrationHow the migration plan you implemented on aws for onprem to aws?
+How do you do the analysis and cost optimization? Is there any tools to optimize?
+Is ther any tool to optimize the budget tool?

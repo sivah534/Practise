@@ -1,0 +1,3 @@
+what is the copy and rsynch module in ansible?
+copy module simply used for copy files form local to remote
+rsync module is the alternative to copy it transfer files more efficently

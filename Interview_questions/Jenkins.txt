@@ -1,0 +1,22 @@
+how to use jenkins shared library usage and plugins?
+go to Manage Jenkins -> Configure System > scrolldown Global Pipeline Libraries > add <yourlibraray name>
+example:
+
+@Library('mySharedLibrary') _
+
+pipeline {
+    agent any
+    stages {
+        stage('Hello') {
+            steps {
+                script {
+                    // Call a function from the shared library
+                    mySharedLibrary.helloWorld()
+                    
+                    // Use a class from the shared library
+                    org.example.mySharedLibrary.Utility.printMessage('Hello from Utility class')
+                }
+            }
+        }
+    }
+}
